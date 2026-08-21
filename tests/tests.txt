@@ -1,0 +1,209 @@
+# Tests
+
+## Test A - Double submit creates only one order
+Viewport: mobile (375x667)
+Covers: POST /api/orders idempotency, frontend submit lock, duplicate-click guard
+Description: Verifies rapid repeated taps cannot create duplicate orders.
+
+Steps:
+1. Add one product to cart and continue to Thanh toán
+2. Tap Tiền mặt twice rapidly
+3. Open Theo dõi đơn or Admin Đơn hàng and review the newest order
+
+Expected: The payment buttons disable immediately with Đang xử lý..., exactly one order is created, and a retry with the same checkout request returns the same order instead of creating another.
+
+## Test B - Quick topping, cart persistence and total recalculation
+Viewport: mobile (375x667)
+Covers: customer product-card + Topping control, compact topping picker, localStorage cart persistence, size switching, topping selection, total recalculation
+Description: Verifies a customer can add pudding/topping directly from the menu card without a long option form, while the selected charge remains correct.
+
+Steps:
+1. On one product card choose Size M + Pudding trứng and add one cup; add the same Size M again with Trân châu đen instead
+2. Add another cup with the exact same Size M + Pudding trứng configuration, then open the cart and change topping on one cup from any multi-quantity line
+3. Refresh the page, reopen the cart and Thanh toán
+
+Expected: Same product and same size with different topping combinations appear as separate cart lines; only identical product + size + topping configurations merge quantity. Editing topping on a line with quantity greater than one splits exactly one cup into its own configuration. Each line itemizes its own topping charge and all totals remain correct after refresh.
+
+## Test C - Out of stock blocks order and payment
+Viewport: desktop (1280x800)
+Covers: prepared-base stock guard, topping inventory guard, POST /api/orders 409, POST /api/orders/:id/payment stock recheck
+Description: Verifies inventory cannot go negative and an unavailable ingredient/base prevents a sale.
+
+Steps:
+1. As Admin, manage a base recipe by cooking a batch, then reduce/consume it until below the amount required for a product; alternatively reduce a topping ingredient below one serving
+2. Attempt to create an order that requires that unavailable base or topping
+3. If an older pending order exists, attempt to confirm payment after its required stock becomes unavailable
+
+Expected: The app refuses the action with a clear Tạm hết message, no new invalid order/payment transition is created, and stock never becomes negative.
+
+## Test D - Network or API failure is visible and retry is safe
+Viewport: mobile (375x667)
+Covers: checkout error handling, network/API failure message, idempotent retry
+Description: Verifies uncertain checkout failures do not silently duplicate an order.
+
+QA Faults:
+```json
+[{"method":"POST","path":"/api/orders","status":500,"body_json":{"error":"Lỗi thử nghiệm khi tạo đơn"}}]
+```
+
+Steps:
+1. Add a product and submit checkout while the simulated API failure is active
+2. Verify the checkout remains available and shows the returned error clearly
+3. Remove the fault and submit again
+
+Expected: The cart is not cleared on failure, a visible error is shown, the button unlocks for retry, and a successful retry creates at most one order.
+
+## Test 1 - Customer checkout moves to order tracking [sanity]
+Viewport: mobile (375x667)
+Covers: mobile responsive account expand/collapse, responsive voucher banner with image fallback, Home-only responsive footer, SPA navigation scroll reset, guest Login/Register entry points, cart size switching with live price recalculation, voucher recalculation after size change, POST /api/orders, VAT-inclusive final pricing, checkout state reset, customer order-success toast, customer order tracking handoff
+Description: Verifies a newly created order does not remain as stale checkout content and is handed to the tracking page.
+
+Steps:
+1. On mobile, verify the voucher banner shows title, description, voucher code and CTA without clipping; if its image cannot load, the gradient fallback remains usable. Then tap the VT account button and verify the account panel expands below the topbar without overflowing the screen
+2. Tap Đăng ký tài khoản and verify the registration form opens; close it, reopen the account panel, then tap Đăng nhập and verify the login form opens
+3. Close auth, add a product with one size, open the cart/Thanh toán, change that line to another available size and verify the line price and subtotal change immediately; if a voucher is applied, verify its discount/eligibility refreshes, then choose Tiền mặt and create the order
+4. Review the page after order creation
+
+Expected: The mobile account panel expands/collapses cleanly and opens the correct Login/Register form; the footer appears only on Trang chủ and stacks into a clean one-column layout on mobile, tablet and narrower POS-sized screens without horizontal overflow, while Thanh toán and Theo dõi đơn keep the banner but do not render the footer. Navigating from a scrolled Home/footer position to Thanh toán or Theo dõi đơn resets the viewport to the top instead of preserving the old scroll position. An item size can be changed directly without deleting/re-adding it, its configured size price updates the line/subtotal/final total immediately and any applied voucher is recalculated; checkout does not add 10% on top of listed prices, visibly states prices already include VAT. Immediately after a successful order, the customer sees a Đặt hàng thành công corner toast with order code and total; tapping it opens Theo dõi đơn. The cart is cleared and cash checkout navigates to Theo dõi đơn, while QR checkout keeps the payment QR visible.
+
+## Test 2 - Admin dashboard aggregates by selected period
+Viewport: desktop (1280x800)
+Covers: BL avatar workspace navigation, sticky topbar, removal of redundant bottom role bar, Admin dashboard period filter, interactive week/month/year revenue comparison chart, monthly/yearly/custom aggregation, VAT-inclusive gross revenue, pre-VAT revenue, embedded VAT payable, revenue/order KPIs, staff POS revenue by actor, barista revenue reconciliation, mobile Admin Dashboard responsive overflow/stacking
+Description: Verifies Admin can summarize business results by useful reporting periods instead of mixing all historical orders together.
+
+Steps:
+1. Sign in as Admin, tap/click the BL avatar and verify the dropdown contains Dashboard Admin, POS Thu ngân, Pha chế and Xem như khách while no fixed bottom role bar is shown; choose Dashboard Admin and open Tổng quan
+2. Switch Báo cáo doanh thu between Hôm nay, Tháng này, Năm nay and Tùy chọn ngày; then in So sánh doanh thu switch Tuần, Tháng and Năm. In Tuần verify Thứ 2 through Thứ 7 all fit inside the chart on mobile without horizontal scrolling, then click individual column groups
+3. Review Doanh thu đơn, Tổng thu and Số đơn after each change; then review Theo dõi doanh thu từng nhân viên and verify each account has separate Lên đơn/DT lên đơn and Nhận pha/DT nhận pha values. Verify Lên đơn counts only paid POS orders created by that account, while Nhận pha is credited when a barista accepts a paid order with Nhận đơn / Bắt đầu pha, including customer web orders. Change the store to Tạm đóng cửa and return to Dashboard to verify the report remains accessible
+
+Expected: The topbar remains fixed while scrolling; role/workspace shortcuts are grouped inside the BL avatar dropdown and the old fixed bottom role navigation is absent. On mobile, Admin Dashboard does not push the whole page wider than the viewport: KPI cards stack cleanly, filters/buttons wrap, CRUD tables scroll only inside their own containers, forms use one column, and the weekly comparison chart fits Thứ 2 through Thứ 7 in one compact responsive row without horizontal scrolling; longer Month/Year views remain contained inside their chart frame. KPI values recalculate from orders inside the selected period; Admin sees revenue including VAT, revenue before VAT, and embedded VAT where VAT = gross × 10/110. The comparison chart uses paid order data, shows two bars for current versus previous period, changes grouping for Tuần/Tháng/Năm, and clicking a column group shows the selected amounts and difference. Individual employee revenue credits only two actions: paid POS orders to the account that created the customer order, and preparation revenue to the barista account stored in claimedBy when that barista accepts the order with Nhận đơn / Bắt đầu pha. Customer web orders do not credit order-taking revenue but can credit preparation revenue. Payment confirmation, preparation completion, and delivery actions do not add employee revenue. Closing or temporarily closing the shop affects customer ordering status only and does not block Admin from opening or checking revenue reports.
+
+## Test 3 - Admin creates a table QR and customer order keeps the table
+Viewport: desktop (1280x800)
+Covers: POST /api/admin/tables, POST /api/admin/tables/save, GET /api/tables/resolve, QR table link, POST /api/orders table identity, table-QR bank-transfer-only payment guard
+Description: Verifies Admin can CRUD a dining table QR and a customer scanning that QR creates an order associated with the correct table.
+
+Steps:
+1. Sign in as Admin, open QR bàn, create Bàn 01 with code BAN01 and keep it active
+2. Open the generated BAN01 ordering link and add a product, then continue to Thanh toán
+3. Verify checkout displays Bàn 01 / QR BAN01 and create the order
+4. Open Admin Đơn hàng and find the new order
+
+Expected: The QR link resolves to Bàn 01, checkout shows the detected table and only offers Thanh toán QR; cash payment is hidden and the backend rejects a non-QR payment method when a valid tableCode is supplied. The created order remains labeled Bàn 01 in Admin/order processing.
+
+## Test 4 - Admin can delete order data only for selected period
+Viewport: desktop (1280x800)
+Covers: POST /api/admin/orders/delete-range, period-scoped destructive action, Admin authorization
+Description: Verifies Admin can remove historical order records for one selected period without deleting catalog, inventory, recipes, vouchers or accounts.
+
+Steps:
+1. In Admin Tổng quan choose a period that contains orders
+2. Click Xóa dữ liệu kỳ đang chọn and confirm
+3. Review the KPI cards and Đơn hàng module
+
+Expected: Orders inside the selected period are removed and its Doanh thu đơn, Tổng thu and Số đơn recalculate; records outside that period and non-order master data remain.
+
+## Test 5 - First Admin remains immutable Super Admin
+Viewport: desktop (1280x800)
+Covers: first-admin migration/protection, POST /api/admin/users Super Admin marker, POST /api/admin/role immutable role guardrail
+Description: Verifies the first-created Admin is permanently protected from role changes by every Admin account.
+
+Steps:
+1. Sign in as an Admin and open Nhân viên & phân quyền
+2. Find the earliest/first Admin account and verify it displays SUPER ADMIN with a disabled role selector
+3. Attempt to change that account through the role-management API/action while authenticated as another Admin
+4. Refresh the user list
+
+Expected: The first Admin remains role Admin, is visibly marked SUPER ADMIN, its selector cannot be changed in the UI, and the backend rejects any role change with a protected-Super-Admin error.
+
+## Test 6 - Cashier can cancel an unpaid order before production
+Viewport: desktop (1280x800)
+Covers: Separate Duyệt đơn & Bàn giao workspace for Admin/order/cashier roles, Admin full POS access, sticky cashier bill on desktop/tablet with normal-flow mobile bill, uncapped matching customer/staff suggestions within the bounded user search page, POS creation-only layout without pickup scheduling, POS creator-owned payment check, customer QR payment report + bank receipt verification + realtime customer not-received toast/retry flow, realtime staff-orders queues plus unified ops-events toast notifications, FIFO oldest-first queues, visible handoff action, role-aware toasts for new order/payment/handoff/delivered/cancelled lifecycle events, toast deep-link to the correct workspace, bell reserved for event/system history, customer ordering remains on customer Home, POST /api/pos/customers/search, POST /api/orders, POST /api/staff/payment-orders, POST /api/orders/:id/payment-reported, POST /api/orders/:id/payment-review, POST /api/orders/:id/payment, POST /api/orders/:id/cancel, POST /api/orders/:id/deliver
+Description: Verifies the exact employee who created a POS order owns its payment check: Order-created orders are confirmed by that Order account, Cashier-created orders by that Cashier account, while Admin may override; cancellation remains limited to before production starts.
+
+Steps:
+1. Sign in as Admin and verify POS / Order plus the separate Duyệt đơn & Bàn giao menu are available alongside Dashboard and Pha chế; verify POS itself no longer contains the two staff queues. Then sign in as Nhân viên Order or Thu ngân in another actor/session. From a customer session create a new unpaid order and verify Admin plus Order/Thu ngân receive the message-style corner toast immediately from the realtime order event, before any manual refresh, while the header bell remains reserved for event/system notifications
+2. In POS, type a few letters such as 'dâu' or 'socola' into Tìm món nhanh and verify product cards filter instantly by product name/category, the result count changes, and × restores the full menu. Scroll the product list on desktop/tablet and verify Hóa đơn #Mới stays fixed while on mobile it remains in normal page flow. Then type at least 2 characters matching more than 8 users across different roles; without clicking any search button, verify all matching users from the bounded search page are available in the scrollable suggestion list with role labels. Verify the POS no longer shows Hẹn giờ lấy, choose one user, create the order, and verify it appears in the unpaid payment queue as not yet paid
+3. Open that pending order in Đơn khách chờ duyệt thanh toán, click Hủy đơn and confirm
+4. From a customer table-QR order, complete the bank transfer and tap Đã quét QR • Theo dõi đơn. Verify Order/Thu ngân sees that the customer reported the transfer. As staff, click Chưa nhận được tiền and without refreshing verify the customer immediately receives a corner notification, opening it shows Chưa nhận được thanh toán with the instruction to check the receiving account, amount and transfer and the button Tôi đã kiểm tra • Báo lại nhân viên; customer taps that button, then staff verifies the bank receipt and clicks Đã nhận tiền • Duyệt đơn. Without pressing refresh, verify open staff sessions update and the paid order moves to Pha chế.
+
+Expected: Admin retains full POS/Order access and the queues live only on the separate Duyệt đơn & Bàn giao page. On desktop/tablet the new-bill panel remains sticky while staff scroll the menu, on mobile it flows normally; customer/staff suggestions are not capped at a small fixed count, and POS no longer shows or sends a pickup-time field. A POS order appears for payment confirmation only to the employee account that created it, while Admin can see and override all POS orders; another employee cannot confirm that POS order as paid. Customer web orders remain visible to authorized Order/Thu ngân/Admin staff for payment confirmation. For QR payments, tapping Đã quét QR reports the transfer for staff verification; staff can either approve only after seeing money in the bank account or choose Chưa nhận được tiền without cancelling the order. A not-received decision remains pending and reaches the customer in realtime as a corner notification; opening Theo dõi đơn shows Chưa nhận được thanh toán with a request to check the receiving account, amount and transfer, plus a button to report again after checking. A newly created customer order produces a corner toast for Admin, Order and Cashier but not Barista; existing pending orders do not all re-toast on login/refresh. Clicking the toast navigates to Duyệt đơn & Bàn giao and opens the exact payment review when that account is allowed to handle it. The header bell contains event/system notices rather than order alerts. Payment and handoff queues require no Làm mới button, update across open staff sessions in realtime after create/pay/cancel/handoff/deliver, and stay FIFO with the oldest order labeled #1. The Đã giao khách action is visibly styled rather than an empty white control. Typing name/SĐT shows matching users with role labels; Xác nhận đã thanh toán and Hủy đơn are equal-sized with orange/red styling; after payment or cancellation the pending entry disappears and the order moves to the correct next state.
+
+## Test 6 - Flexible barista handoff and final customer delivery
+Viewport: desktop (1280x800)
+Covers: POST /api/bar/orders/:id/advance, POST /api/staff/handoff-orders, POST /api/orders/:id/deliver, barista/order/cashier delivery permissions, delivered audit state, six-step customer order tracking, started-production cancellation guardrail
+Description: Verifies a prepared drink can be handed to Order/Thu ngân for customer delivery, while barista can also deliver directly when needed.
+
+Steps:
+1. Actor A signs in as barista, receives a paid waiting order, starts making it, completes preparation, and verifies the order reaches Pha xong
+2. On one prepared order, Actor A clicks Chuyển bàn giao; Actor B signs in as Order or Thu ngân and verifies that order appears in Đơn đã pha xong • chờ bàn giao khách
+3. Actor B clicks Đã giao khách and then reviews the customer's Theo dõi đơn timeline
+4. On another prepared order, Actor A uses Giao khách ngay without sending it to the handoff queue
+5. Verify a making order still cannot be cancelled after production has started
+
+Expected: A handed-off order is visible to Order/Thu ngân and remains visible to barista until delivered; either Order, Thu ngân, barista or Admin can finalize a ready order, barista/Admin can directly deliver a just-prepared order, and the final state records delivered status while the customer timeline shows six stages ending Đã giao khách. After delivery the order moves into Lịch sử đơn / Hóa đơn cũ; the customer can open Xem hóa đơn and see each drink, size, each pudding/topping charge, discount, VAT included, total and payment method. Cancellation remains blocked after production starts.
+
+## Test 7 - Admin schedules store opening hours
+Viewport: mobile (375x667)
+Covers: GET /api/shop-settings, POST /api/admin/shop-settings, 24/24 opening mode, customer-visible opening status, temporary closure notice
+Description: Verifies Admin can set opening and closing times or temporarily close the shop and customers can see the current status.
+
+Steps:
+1. Sign in as Admin, open Cài đặt, choose Mở theo khung giờ, set opening time to 08:00 and closing time to 22:00, then save
+2. Return to the customer Home and verify the compact store status appears in the top header immediately beside the notification bell, with no separate status card below the banner
+3. In Admin choose Mở cửa 24/24, verify Mở theo khung giờ and Tạm đóng cửa are no longer selected and the time inputs are hidden, then save and verify Home/Footer show Mở cửa 24/24
+4. In Admin choose Tạm đóng cửa, verify the other two modes are no longer selected, enter a short notice, save, then return to Home
+
+Expected: Customer Home shows only the compact current state in the top header beside the notification bell (Đang mở cửa, Đã đóng cửa, or Tạm đóng cửa) and no separate store-status card below the banner. Footer continues to show the configured operating state; exactly one of Mở cửa 24/24, Mở theo khung giờ, or Tạm đóng cửa can be selected at a time; scheduled time inputs appear only for Mở theo khung giờ, while temporary closure changes the header state to Tạm đóng cửa instead of claiming the shop is open.
+
+## Test 9 - Inventory seeds categories and warns at 20 percent
+Viewport: desktop (1280x800)
+Covers: POST /api/admin/ingredients seed, POST /api/admin/ingredients/save category/initial stock/cost, automatic 20% low-stock threshold, inventory CRUD display
+Description: Verifies the requested milk-tea ingredient catalog is populated without duplicates and stock alerts are derived from initial stock.
+
+Steps:
+1. Sign in as Admin and open Kho / Nguyên liệu; verify rows include Trà nền, Sữa và bột béo, Chất tạo ngọt, Topping and Lớp kem phủ ingredients with units, initial/current stock and reference costs
+2. Edit one ingredient to Tồn ban đầu 10 and Tồn hiện tại 3, save, and verify the warning threshold displays 2
+3. Edit the same ingredient to Tồn hiện tại 2, save, then review the row and Dashboard Cảnh báo kho
+4. Refresh the page and review the ingredient list again
+
+Expected: Seeded ingredient names do not duplicate after refresh; categories remain visible; the alert threshold stays exactly 20% of initial stock, and the ingredient is visibly warned when current stock is at or below that threshold.
+
+## Test 10 - Seed base and size-specific drink recipes
+Viewport: desktop (1280x800)
+Covers: recipe catalog seeding, POST /api/admin/base-recipe-categories, POST /api/admin/base-recipes, POST /api/admin/recipes, POST /api/admin/recipes/save size field, size-aware consume/restore recipe stock, full-bleed responsive product photos
+Description: Verifies Admin receives a usable recipe library for the current menu and each drink size consumes the correct amount of prepared bases.
+
+Steps:
+1. Sign in as Admin and open Công thức nền; verify categories Cốt trà, Nền sữa & trà sữa, Nền trái cây, Nền latte & cacao, Topping & kem and Nền đá xay are present, with seeded batches such as Cốt hồng trà 10L, Nền sữa béo 10L, Kem cheese 5L and fruit bases showing their ingredient rows
+2. Open Công thức pha chế, choose Trà sữa truyền thống and compare Size M with Size L; verify both sizes have recipe rows and L has larger base quantities than M
+3. In the customer menu, verify a product with an image uses an edge-to-edge full-width card image rather than a small fixed inner image, on both desktop and mobile
+4. Cook enough seeded bases, create and pay a Size L order, then return to Công thức nền and verify the relevant prepared-base stock decreases by the Size L quantities; cancel a waiting paid order and verify the same quantities are restored
+
+Expected: Recipe categories, base batches and ingredient components are seeded once without duplicates; final recipes are stored per product and size, Size L quantities are larger than Size M, payment deducts only the selected size recipe and cancellation restores it, and menu product photos fill the card width responsively.
+
+## Test 8 - Product sizes share one price source across Admin, customer and POS
+Viewport: desktop (1280x800)
+Covers: one-time menu/category seeding, POST /api/admin/products/save size validation, GET /api/products sizes, customer size selection, POS size selection, order unitPrice
+Description: Verifies the expanded drink catalog is seeded once and each product uses Admin-configured size prices everywhere.
+
+Steps:
+1. Sign in as Admin, open Sản phẩm / Menu and verify the expanded categories/products are available; edit one product so size M and L have two distinct prices, save, then refresh
+2. Open customer Home, choose that product, select L, add it to cart and verify the cart price matches Admin's L price
+3. Open POS as Admin, add size M of the same product and verify Hóa đơn #Mới uses the M price
+4. Create the POS order and inspect Check đơn
+
+Expected: Admin can add/remove/edit arbitrary size rows; customer and POS show the same size options and exact prices; M and L can coexist as separate cart/order lines and the saved order uses the selected size price without a hard-coded +5.000đ rule.
+
+## Test 8 - Product sizes share one price source across Admin, customer and POS
+Viewport: desktop (1280x800)
+Covers: one-time menu/category seeding, POST /api/admin/products/save size validation, GET /api/products sizes, customer size selection, POS size selection, order unitPrice
+Description: Verifies the expanded drink catalog is seeded once and each product uses Admin-configured size prices everywhere.
+
+Steps:
+1. Sign in as Admin, open Sản phẩm / Menu and verify the expanded categories/products are available; edit one product so size M and L have two distinct prices, save, then refresh
+2. Open customer Home, choose that product, select L, add it to cart and verify the cart price matches Admin's L price
+3. Open POS as Admin, add size M of the same product and verify Hóa đơn #Mới uses the M price
+4. Create the POS order and inspect Check đơn
+
+Expected: Admin can add/remove/edit arbitrary size rows; customer and POS show the same size options and exact prices; M and L can coexist as separate cart/order lines and the saved order uses the selected size price without a hard-coded +5.000đ rule.
