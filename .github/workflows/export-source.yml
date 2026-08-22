@@ -2,6 +2,8 @@ name: Export source ZIP
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 jobs:
   export:
