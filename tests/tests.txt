@@ -55,7 +55,7 @@ Expected: The cart is not cleared on failure, a visible error is shown, the butt
 
 ## Test 1 - Customer checkout moves to order tracking [sanity]
 Viewport: mobile (375x667)
-Covers: mobile responsive account expand/collapse, responsive voucher banner with image fallback, Home-only responsive footer, SPA navigation scroll reset, guest Login/Register entry points, cart size switching with live price recalculation, voucher recalculation after size change, POST /api/orders, VAT-inclusive final pricing, checkout state reset, customer order-success toast, customer order tracking handoff
+Covers: VoiTea elephant logo visibility in Home topbar/sidebar/login/footer, mobile responsive account expand/collapse, responsive voucher banner with image fallback, Home-only responsive footer, SPA navigation scroll reset, guest Login/Register entry points, cart size switching with live price recalculation, voucher recalculation after size change, POST /api/orders, VAT-inclusive final pricing, checkout state reset, customer order-success toast, customer order tracking handoff
 Description: Verifies a newly created order does not remain as stale checkout content and is handed to the tracking page.
 
 Steps:
@@ -127,7 +127,7 @@ Steps:
 3. Open that pending order in Đơn khách chờ duyệt thanh toán, click Hủy đơn and confirm
 4. From a customer table-QR order, complete the bank transfer and tap Đã quét QR • Theo dõi đơn. Verify Order/Thu ngân sees that the customer reported the transfer. As staff, click Chưa nhận được tiền and without refreshing verify the customer immediately receives a corner notification, opening it shows Chưa nhận được thanh toán with the instruction to check the receiving account, amount and transfer and the button Tôi đã kiểm tra • Báo lại nhân viên; customer taps that button, then staff verifies the bank receipt and clicks Đã nhận tiền • Duyệt đơn. Without pressing refresh, verify open staff sessions update and the paid order moves to Pha chế.
 
-Expected: Admin retains full POS/Order access and the queues live only on the separate Duyệt đơn & Bàn giao page. On desktop/tablet the new-bill panel remains sticky while staff scroll the menu, on mobile it flows normally; customer/staff suggestions are not capped at a small fixed count, and POS no longer shows or sends a pickup-time field. A POS order appears for payment confirmation only to the employee account that created it, while Admin can see and override all POS orders; another employee cannot confirm that POS order as paid. Customer web orders remain visible to authorized Order/Thu ngân/Admin staff for payment confirmation. For QR payments, tapping Đã quét QR reports the transfer for staff verification; staff can either approve only after seeing money in the bank account or choose Chưa nhận được tiền without cancelling the order. A not-received decision remains pending and reaches the customer in realtime as a corner notification; opening Theo dõi đơn shows Chưa nhận được thanh toán with a request to check the receiving account, amount and transfer, plus a button to report again after checking. A newly created customer order produces a corner toast for Admin, Order and Cashier but not Barista; existing pending orders do not all re-toast on login/refresh. Clicking the toast navigates to Duyệt đơn & Bàn giao and opens the exact payment review when that account is allowed to handle it. The header bell contains event/system notices rather than order alerts. Payment and handoff queues require no Làm mới button, update across open staff sessions in realtime after create/pay/cancel/handoff/deliver, and stay FIFO with the oldest order labeled #1. The Đã giao khách action is visibly styled rather than an empty white control. Typing name/SĐT shows matching users with role labels; Xác nhận đã thanh toán and Hủy đơn are equal-sized with orange/red styling; after payment or cancellation the pending entry disappears and the order moves to the correct next state.
+Expected: Admin retains full POS/Order access and the queues live only on the separate Duyệt đơn & Bàn giao page. The top header with VoiTea elephant logo stays fixed and visible while scrolling on Home, customer views, POS/Order, Duyệt đơn & Bàn giao, Pha chế and Admin across desktop, tablet and mobile without covering page content. On mobile, customer order checking stays within the phone width: the six progress states are shown as a compact vertical stepper, one state per row with a connecting line, instead of a long horizontal strip. On desktop/tablet the new-bill panel remains sticky while staff scroll the menu, on mobile it flows normally; customer/staff suggestions are not capped at a small fixed count, and POS no longer shows or sends a pickup-time field. A POS order appears for payment confirmation only to the employee account that created it, while Admin can see and override all POS orders; another employee cannot confirm that POS order as paid. Customer web orders remain visible to authorized Order/Thu ngân/Admin staff for payment confirmation. For QR payments, tapping Đã quét QR reports the transfer for staff verification; staff can either approve only after seeing money in the bank account or choose Chưa nhận được tiền without cancelling the order. A not-received decision remains pending and reaches the customer in realtime as a corner notification; opening Theo dõi đơn shows Chưa nhận được thanh toán with a request to check the receiving account, amount and transfer, plus a button to report again after checking. A newly created customer order produces a corner toast for Admin, Order and Cashier but not Barista; existing pending orders do not all re-toast on login/refresh. Clicking the toast navigates to Duyệt đơn & Bàn giao and opens the exact payment review when that account is allowed to handle it. The header bell contains event/system notices rather than order alerts. Payment and handoff queues require no Làm mới button, update across open staff sessions in realtime after create/pay/cancel/handoff/deliver, and stay FIFO with the oldest order labeled #1. The Đã giao khách action is visibly styled rather than an empty white control. Typing name/SĐT shows matching users with role labels; Xác nhận đã thanh toán and Hủy đơn are equal-sized with orange/red styling; after payment or cancellation the pending entry disappears and the order moves to the correct next state.
 
 ## Test 6 - Flexible barista handoff and final customer delivery
 Viewport: desktop (1280x800)
@@ -184,7 +184,7 @@ Expected: Recipe categories, base batches and ingredient components are seeded o
 
 ## Test 8 - Product sizes share one price source across Admin, customer and POS
 Viewport: desktop (1280x800)
-Covers: one-time menu/category seeding, POST /api/admin/products/save size validation, GET /api/products sizes, customer size selection, POS size selection, order unitPrice
+Covers: one-time menu/category seeding, POST /api/admin/products/save size validation, GET /api/products sizes and imagery, non-empty branded product-photo fallback, customer size selection, POS size selection, order unitPrice
 Description: Verifies the expanded drink catalog is seeded once and each product uses Admin-configured size prices everywhere.
 
 Steps:
@@ -193,11 +193,24 @@ Steps:
 3. Open POS as Admin, add size M of the same product and verify Hóa đơn #Mới uses the M price
 4. Create the POS order and inspect Check đơn
 
-Expected: Admin can add/remove/edit arbitrary size rows; customer and POS show the same size options and exact prices; M and L can coexist as separate cart/order lines and the saved order uses the selected size price without a hard-coded +5.000đ rule.
+Expected: After the one-time price migration, Admin shows every current product at M 20.000đ and L 25.000đ, while topping prices are only 3.000–5.000đ. Every customer and POS product tile has a beverage photo even when Admin has not uploaded one, and the VoiTea elephant logo is visibly overlaid on the cup/photo as a sticker; broken external product links fall back without leaving an empty image area. Admin can still edit prices later; customer and POS show the same exact configured size/topping prices, M and L can coexist as separate cart/order lines, and the saved order uses the authoritative backend price.
+
+## Test 9 - Customer updates phone and password securely
+Viewport: mobile (375x667)
+Covers: account dropdown navigation, dedicated account page, POST /api/account/profile, POST /api/account/password, phone uniqueness, current-password verification, responsive account forms
+Description: Verifies a signed-in customer can manage account information without exposing unsafe unauthenticated changes.
+
+Steps:
+1. Sign in as a customer, open the account menu and choose Thông tin tài khoản
+2. Change the phone number to a valid unused number, enter the current password and save
+3. Change the password by entering the current password, a different new password of at least 6 characters, and the matching confirmation
+4. Refresh and sign in using the updated phone number and new password
+
+Expected: The account page shows the current profile and points, saves the new phone only after the correct current password is supplied, rejects a phone already used by another account, changes the password only when the current password is correct and the new password is valid, remains clean on mobile, and the updated phone/new password work for the next login.
 
 ## Test 8 - Product sizes share one price source across Admin, customer and POS
 Viewport: desktop (1280x800)
-Covers: one-time menu/category seeding, POST /api/admin/products/save size validation, GET /api/products sizes, customer size selection, POS size selection, order unitPrice
+Covers: one-time menu/category seeding, POST /api/admin/products/save size validation, GET /api/products sizes and imagery, non-empty branded product-photo fallback, customer size selection, POS size selection, order unitPrice
 Description: Verifies the expanded drink catalog is seeded once and each product uses Admin-configured size prices everywhere.
 
 Steps:
@@ -206,4 +219,4 @@ Steps:
 3. Open POS as Admin, add size M of the same product and verify Hóa đơn #Mới uses the M price
 4. Create the POS order and inspect Check đơn
 
-Expected: Admin can add/remove/edit arbitrary size rows; customer and POS show the same size options and exact prices; M and L can coexist as separate cart/order lines and the saved order uses the selected size price without a hard-coded +5.000đ rule.
+Expected: After the one-time price migration, Admin shows every current product at M 20.000đ and L 25.000đ, while topping prices are only 3.000–5.000đ. Every customer and POS product tile has a beverage photo even when Admin has not uploaded one, and the VoiTea elephant logo is visibly overlaid on the cup/photo as a sticker; broken external product links fall back without leaving an empty image area. Admin can still edit prices later; customer and POS show the same exact configured size/topping prices, M and L can coexist as separate cart/order lines, and the saved order uses the authoritative backend price.
