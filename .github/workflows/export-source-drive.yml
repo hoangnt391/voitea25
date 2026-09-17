@@ -1,22 +1,25 @@
-name: Export VoiTea source for Drive
+name: Export VoiTea Source
+
 on:
   push:
-    branches: [main]
+    paths:
+      - '.github/workflows/export-source-drive.yml'
+
 permissions:
   contents: read
+
 jobs:
-  export:
-    if: github.event.head_commit.message == 'chore: export VoiTea source for Drive'
+  export-source:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Create source archive
-        run: |
-          zip -r voitea25-source-2026-09-17.zip . \
-            -x '.git/*' \
-            -x 'node_modules/*' \
-            -x 'voitea25-source-2026-09-17.zip'
-      - name: Upload source archive
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create source ZIP
+        shell: bash
+        run: zip -r voitea25-source-2026-09-17.zip . -x '.git/*' 'node_modules/*' 'voitea25-source-2026-09-17.zip'
+
+      - name: Upload ZIP artifact
         uses: actions/upload-artifact@v4
         with:
           name: voitea25-source-drive
