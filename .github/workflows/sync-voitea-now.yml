@@ -1,0 +1,70 @@
+name: Sync VoiTea now
+on:
+  push:
+    branches:
+      - main
+permissions:
+  contents: write
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch latest deployed barista stock UI
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          app_path = Path('src/App.tsx')
+          app = app_path.read_text(encoding='utf-8')
+
+          state = "const[barStock,setBarStock]=useState<any[]>([]);"
+          if "const[showBarStock,setShowBarStock]=useState(false);" not in app:
+              if state not in app:
+                  raise SystemExit('barStock state anchor not found')
+              app = app.replace(state, state + "const[showBarStock,setShowBarStock]=useState(false);", 1)
+
+          target = "className={'panel supplyPanel barStockPanel '+(showBarStock?'open':'collapsed')}"
+          if target not in app:
+              start = "<article className='panel supplyPanel'><div className='moduleHead'><div><h3>Tồn tại quầy Pha chế</h3><p>Chỉ gồm nguyên liệu đã được Pha chế xác nhận nhận từ Kho.</p></div><Boxes/></div><div className='barStockGrid'>"
+              end = "</div></article></section><section className='board'>"
+              s = app.find(start)
+              if s < 0:
+                  raise SystemExit('bar stock panel start not found')
+              e = app.find(end, s)
+              if e < 0:
+                  raise SystemExit('bar stock panel end not found')
+              e += len(end)
+              replacement = """<article className={'panel supplyPanel barStockPanel '+(showBarStock?'open':'collapsed')}><button type='button' className='barStockToggle' onClick={()=>setShowBarStock(v=>!v)} aria-expanded={showBarStock}><span><Boxes/><span><b>Tồn tại quầy Pha chế</b><small>{stockRows.length} nguyên liệu • {stockRows.filter((i:any)=>Number(i.stock||0)<=0).length} hết tại quầy</small></span></span><span>{showBarStock?'Thu gọn tồn tại quầy':'Xem tồn tại quầy'}<ChevronDown className={showBarStock?'open':''}/></span></button>{showBarStock&&<><p className='barStockHint'>Chỉ gồm nguyên liệu đã được Pha chế xác nhận nhận từ Kho.</p><div className='barStockGrid'>{stockRows.map((i:any)=><div className={'barStockItem '+(Number(i.stock||0)<=0?'empty':'')} key={i.id}><span><b>{i.name}</b><small>{i.category} • Kho còn {i.warehouseStock||0} {i.unit}</small></span><div className='barStockActions'><strong>{i.stock} {i.unit}</strong><button type='button' disabled={busy==='request-'+i.id} onClick={()=>requestIngredient(i)}>{busy==='request-'+i.id?'Đang gửi...':'Yêu cầu Kho'}</button></div></div>)}{!stockRows.length&&<p className='peopleEmpty'>Chưa có dữ liệu nguyên liệu tại quầy.</p>}</div></>}</article></section><section className='board'>"""
+              app = app[:s] + replacement + app[e:]
+
+          app_path.write_text(app, encoding='utf-8')
+
+          css_path = Path('src/index.css')
+          css = css_path.read_text(encoding='utf-8')
+          marker = '/* bar-stock-collapse-sync */'
+          if marker not in css:
+              css += """
+/* bar-stock-collapse-sync */
+.barStockPanel{padding:0!important;overflow:hidden}.barStockPanel.collapsed{align-self:start}.barStockToggle{width:100%;border:0;background:#fff;color:#153326;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;cursor:pointer}.barStockToggle>span{display:flex;align-items:center;gap:10px;min-width:0}.barStockToggle>span:first-child>svg{width:24px;color:#e6531a;flex:0 0 auto}.barStockToggle>span:first-child>span{display:flex;flex-direction:column;min-width:0}.barStockToggle b{font-size:15px}.barStockToggle small{margin-top:3px;color:#718378;font-size:10px}.barStockToggle>span:last-child{color:#a33a17;font-size:11px;font-weight:900;white-space:nowrap}.barStockToggle>span:last-child svg{width:17px;transition:transform .18s ease}.barStockToggle>span:last-child svg.open{transform:rotate(180deg)}.barStockHint{margin:0 14px 10px;color:#718378;font-size:11px}.barStockPanel .barStockGrid{padding:0 14px 14px}@media(max-width:780px){.barStockToggle{padding:11px;gap:7px}.barStockToggle>span:first-child{gap:7px}.barStockToggle b{font-size:13px}.barStockToggle small{font-size:9px;line-height:1.3}.barStockToggle>span:last-child{font-size:9px;gap:4px}.barStockToggle>span:last-child svg{width:15px}.barStockHint{margin:0 11px 8px;font-size:9.5px}.barStockPanel .barStockGrid{padding:0 11px 11px}}
+"""
+              css_path.write_text(css, encoding='utf-8')
+
+          tests_path = Path('tests/tests.txt')
+          tests = tests_path.read_text(encoding='utf-8')
+          if 'collapsed-by-default Pha chế counter-stock accordion' not in tests:
+              tests = tests.replace('POST /api/bar/stock, warehouse-to-barista raw-stock separation','POST /api/bar/stock, collapsed-by-default Pha chế counter-stock accordion, warehouse-to-barista raw-stock separation',1)
+              tests = tests.replace('1. Sign in as Pha chế, open Tồn tại quầy Pha chế, choose an ingredient that is low/zero, click Yêu cầu Kho, enter a needed quantity in the VoiTea quantity toast and send it','1. Sign in as Pha chế and verify Tồn tại quầy Pha chế is collapsed by default; click Xem tồn tại quầy, choose an ingredient that is low/zero, click Yêu cầu Kho, enter a needed quantity in the VoiTea quantity toast and send it, then click Thu gọn tồn tại quầy and verify the stock list closes again',1)
+              tests = tests.replace('Pha chế receives that one combined slip, raw Barista stock is credited once on receipt, and the printable slip shows','Pha chế receives that one combined slip and raw Barista stock is credited once on receipt. Tồn tại quầy Pha chế stays closed by default, expands only when Xem tồn tại quầy is clicked, keeps its loaded data while closed, and collapses again with Thu gọn tồn tại quầy. The printable slip shows',1)
+              tests_path.write_text(tests, encoding='utf-8')
+          PY
+      - name: Verify and push
+        run: |
+          rm -f .github/workflows/apply-bar-stock-collapse.yml .github/workflows/sync-voitea-now.yml
+          git config user.name openai-sync
+          git config user.email openai-sync@users.noreply.github.com
+          git add src/App.tsx src/index.css tests/tests.txt .github/workflows/apply-bar-stock-collapse.yml .github/workflows/sync-voitea-now.yml
+          git diff --cached --check
+          git commit -m "sync: update VoiTea from deployed source"
+          git push origin HEAD:main
